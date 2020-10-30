@@ -39,8 +39,10 @@ const EMOJI_CHECK = "\u2705";
 const EMOJI_RED = "\ud83d\udd34";
 const EMOJI_HOLLOW_RED = "\u2b55";
 
-/* sheet_data. refreshed on every POST request */
-var sheet_data;
+/* monster and quest sheet data. refreshed on every POST request */
+var monster_data;
+
+var quest_data;
 
 /////////////// CODE //////////////////
 
@@ -70,10 +72,45 @@ function sendMessage(id, text) {
 ///////* TEST FUNCTIONS */////////
 
 function testSetValue() {
-    sheet_data = getDataSheetAsArray();
+    monster_data = getMonstersSheetAsArray();
     setValues(ADMIN_ID, "testtext", ["Teostra", ["horst,aladin,chris"]]);
 }
 
+function testSendMessage() {
+    sendMessage(ADMIN_ID, "testmessage");
+}
+
+function testSendMonsterState() {
+    monster_data = getMonstersSheetAsArray();
+    quest_data = getQuestsSheetAsArray();
+    sendMonsterState(ADMIN_ID, "Fluffeluff");
+    sendMonsterState(ADMIN_ID, "Effluvial Opera");
+
+}
+
+function testAllDataGet() {
+    quest_data = getQuestsSheetAsArray();
+    monster_data = getMonstersSheetAsArray();
+
+    Logger.log(quest_data.length);
+
+    Logger.log(quest_data)
+
+    Logger.log(monster_data.length);
+
+    Logger.log(monster_data)
+
+    let q_arr = getQuestsSheetAsArray();
+    Logger.log(q_arr);
+    let m_arr = getMonstersSheetAsArray();
+    Logger.log(m_arr);
+    Logger.log("m_arr length: " + m_arr.length);
+
+    let all_m = fetchAllMonstersArray();
+    Logger.log(all_m);
+    let all_q = fetchAllQuestsArray();
+    Logger.log(all_q);
+}
 
 //////* MAIN REQUEST HANDLER *//////
 // this is where telegram works
@@ -81,11 +118,15 @@ function doPost(e) {
 
     var contents = JSON.parse(e.postData.contents);
 
+    var timestamp = new Date();
+    timestamp.toLocaleString();
+
     var text = contents.message.text;
     var user_id = contents.message.from.id;
 
-    // refresh sheet_data
-    sheet_data = getDataSheetAsArray();
+    // refresh data
+    monster_data = getMonstersSheetAsArray();
+    quest_data = getQuestsSheetAsArray();
 
     try {
         //test for command (starts with "/")
@@ -103,7 +144,7 @@ function doPost(e) {
 
 /////////* BOT FUNCTIONS */////////
 
-// handle commands. id needed to send messages and verify user on /setValue
+// handle commands. id needed to send messages and authorize user on /setValue
 function commandHandler(id, text) {
 
     var args = text.split(' ');
@@ -116,14 +157,11 @@ function commandHandler(id, text) {
         case "/help":
             displayHelp(id);
             break;
-        case "/quests":
-            displayCrownQuests(id);
-            break;
         case "/crown":
             setValues(id, text, args);
             break;
         case "/listall":
-            sendMessage(id, fetchAllMonsters().join("\n"));
+            sendMessage(id, fetchAllMonstersArray().concat(fetchAllQuestsArray()).join("\n"));
             break;
         default:
             sendMessage(id, "command not found. try /help.");
@@ -131,12 +169,146 @@ function commandHandler(id, text) {
     }
 }
 
+// display help message (user sends /help)
+function displayHelp(id) {
+    let help_text = "Hi! You're either new here or requested help with the dreiernasenBot.\
+                \n\nAvailable commands are:\
+                \n1) <Name of Monster or Quest> to display the current state for a single monster or crown quest\
+                \n2) '/listAll' to list all monsters and quests in the database\
+                \n3) '/crown <monster> <user1L>,<user2S>' to set a crown for listed users. No whitespaces between users - use comma!\
+                \n4) '/help' to display this message again\
+                \n\nWARN: Quest information does not yet update automatically after you used /crown.";
+    sendMessage(id, help_text);
+}
+
+// find monster data in spreadsheet and return formatted data as array
+function findItem(id, item) {
+    // TODO way too long function. fixc && TODO either format data completely or don't do it at all
+
+    var item_result = null;
+
+    if (fetchAllMonstersArray().includes(item)) {
+
+        item_result = getMonsterData(id, item, "all");
+
+    } else if (fetchAllQuestsArray().includes(item)) {
+
+        item_result = getQuestData(id, item);
+
+    } else {
+        sendNotFoundMessage(id, item);
+    }
+
+    return item_result;
+}
+
+
+// set values for cells, used for setting users new crown possessions. (e.g. set that user1 found large Teostra crown) 
+function setValues(id, text, args) {
+
+    if (!isUserAuthorized(id, text, args)) {
+        return;
+    }
+
+    // handle (wrong) user input
+    if (args.length > 4) {
+        sendMessage(id, "error. too many arguments provided. remember: no whitespaces between users (=> userL,user2L)!\n\ncheck usage via /help");
+        return;
+    } else if (args.length <= 1) {
+        sendMessage(id, "error. not enough arguments provided. You need a <monster> and at least one <user>!\n\ncheck usage via /help");
+        return;
+    }
+
+    var raw_user_data = String(args.pop());
+
+    var monster = args.join(' ');
+
+    // search for the spreadsheet row the monsters data is in. +1 because sheet starts at 1, not at 0
+    var monster_row = getRowNumberByValue(id, monster_data, monster);
+
+    if (!monster_row) {
+        return;
+    }
+
+    var matched_user_columns = getMatchedUserColumns(id, raw_user_data);
+
+    if (matched_user_columns == null) {
+        return;
+    }
+
+    matched_user_columns.forEach(user => changeCellValue(id, user, monster_row));
+
+    // refresh monster_data
+    monster_data = getMonstersSheetAsArray();
+
+    sendMessage(id, EMOJI_CHECK + "check! New state of " + monster + ":");
+
+    sendMonsterState(id, monster);
+}
+
+
+function getMonsterData(id, monster, mode = "all") {
+    let matching_monster_row = getRowNumberByValue(id, monster_data, monster);
+    let raw_data = monster_data[matching_monster_row].slice(0, 3);
+
+    var answer_array = [];
+
+    if (raw_data[0] == "Fluffeluff") {
+        answer_array.push(raw_data[1]);
+        answer_array.push("Es kosst dich: " + raw_data[2]);
+        return answer_array;
+    }
+
+    if (raw_data[1] == "Yes") {
+        answer_array.push(EMOJI_RED + "Not done");
+        if (mode == "all") {
+            answer_array.push(EMOJI_HOLLOW_RED + raw_data[2]);
+        }
+    } else if (raw_data[1] == "No") {
+        answer_array.push(EMOJI_CHECK + "Done");
+    }
+
+    return answer_array;
+}
+
+
+function getQuestData(id, quest) {
+    let matching_row = getRowNumberByValue(id, quest_data, quest);
+    let raw_data = quest_data[matching_row];
+
+    var answer_array = [];
+
+    if (raw_data[1] == "NO") {
+        answer_array.push(EMOJI_CHECK + "Done");
+        return answer_array;
+    }
+
+    answer_array.push("Rank: " + raw_data[2] + "\n");
+
+    for (let i = 3; i <= raw_data.length; i += 2) {
+
+        if (raw_data[i]) {
+
+            if (raw_data[i + 1] == '') {
+                answer_array.push(EMOJI_CHECK + raw_data[i]);
+            } else {
+
+                answer_array.push(EMOJI_RED + raw_data[i])
+                answer_array.push(EMOJI_HOLLOW_RED + raw_data[i + 1]);
+            }
+        }
+    }
+
+    return answer_array;
+}
+
+
 // send user a message w/ approximate matches (matching 1st char) to search query
 function sendNotFoundMessage(id, entry) {
-    let monster_list = fetchAllMonsters();
+    let all_headers = fetchAllMonstersArray().concat(fetchAllQuestsArray());
 
     // TODO make function and make clickable
-    let approx_match = monster_list.filter(item => item.toLowerCase().startsWith(entry.substring(0, 1).toLowerCase()));
+    let approx_match = all_headers.filter(item => item.toLowerCase().startsWith(entry.substring(0, 1).toLowerCase()));
 
     let match_list = approx_match.join('\n');
 
@@ -155,7 +327,7 @@ function getMatchedUserColumns(id, string) {
     var users = [...new Set(data.map(x => cleanString(x)))];
 
     var matched_user_columns = [];
-    
+
     users.forEach(user => {
         let container = getColumnByValue(id, user);
 
@@ -183,202 +355,21 @@ function isUserAuthorized(id, text, args) {
     }
 }
 
-// set values for cells, used for setting users new crown possessions. (e.g. set that user1 found large Teostra crown) 
-function setValues(id, text, args) {
-
-    if (!isUserAuthorized(id, text, args)) {
-        return;
-    }
-
-    // handle (wrong) user input
-    if (args.length > 4) {
-        sendMessage(id, "error. too many arguments provided. remember: no whitespaces between users (=> userL,user2L)!\n\ncheck usage via /help");
-        return;
-    } else if (args.length <= 1) {
-        sendMessage(id, "error. not enough arguments provided. You need a <monster> and at least one <user>!\n\ncheck usage via /help");
-        return;
-    }
-
-    var raw_user_data = String(args.pop());
-
-    var monster = args.join(' ');
-
-    // search for the spreadsheet row the monsters data is in. +1 because sheet starts at 1, not at 0
-    // TODO get entry row of function
-    var monster_row = getRowByValue(id, monster);
-
-    if (!monster_row) {
-        return;
-    }
-
-    var matched_user_columns = getMatchedUserColumns(id, raw_user_data);
-
-    if (matched_user_columns == null) {
-        return;
-    }
-
-    matched_user_columns.forEach(user => changeCellValue(id, user, monster_row));
-
-    // refresh sheet_data
-    sheet_data = getDataSheetAsArray();
-
-    sendMessage(id, EMOJI_CHECK + "check! New state of " + monster + ":");
-
-    sendMonsterState(id, monster);
-
-    return;
-}
-
-// TODO either format data completely or don't do it at all
-// find monster data in spreadsheet and return formatted data as array
-function findMonster(id, monster) {
-
-    var result = null;
-
-    for (var i = 1; i < sheet_data.length; i++) {
-
-        if (sheet_data[i] != null && (sheet_data[i][0] != null || sheet_data[i][0] != undefined)) {
-
-            if (entriesMatch(sheet_data[i][0], monster)) {
-
-                if (i <= MONSTER_COUNT) {
-                    result = sheet_data[i].slice(0, 3);
-                    // TODO createMonsterAnswer
-                } else {
-                    result = sheet_data[i].slice(0, COLUMNS + 1);
-                    // TODO createQuestAnswer
-                }
-
-                break;
-            }
-
-            // TODO result should be null here, build createNullAnswer - is that so??
-        }
-    }
-
-    if (result == null) {
-
-        sendNotFoundMessage(id, monster);
-
-    // TODO make function createMonsterAnwswer()
-    } else {
-        let answer_array = [];
-
-        // result contains a monsters data
-        if (result.length == 3) {
-
-            if (result[0] == "Fluffeluff") {
-                answer_array.push(result[1]);
-                answer_array.push("Es kosst dich: " + result[2]);
-                return answer_array;
-            }
-
-            if (result[1] == "Yes") {
-                answer_array.push(EMOJI_RED + "Not done");
-            } else {
-                answer_array.push(EMOJI_CHECK + "Done");
-                return answer_array;
-            }
-            answer_array.push(EMOJI_HOLLOW_RED + result[2]);
-            return answer_array;
-        }
-        // TODO make function createQuestAnwswer()
-        // result contains quest data
-        else {
-            if (result[1] == "YES") {
-                answer_array.push(EMOJI_CHECK + "Done");
-                return answer_array;
-            }
-            answer_array.push("Rank: " + result[2] + "\n");
-
-            for (let i = 3; i <= result.length; i++) {
-                if (i % 2 != 0 && result[i]) {
-                    if (result[i + 1] == '') {
-                        answer_array.push(EMOJI_CHECK + result[i]);
-                    } else {
-                        answer_array.push(EMOJI_RED + result[i]);
-                    }
-                }
-                else if (result[i]) {
-                    answer_array.push(EMOJI_HOLLOW_RED + result[i]);
-                }
-            }
-            return answer_array;
-        }
-    }
-}
-
-// TODO rebuild, use loop, remove "monster1" labels and insert emojis
-function displayCrownQuests(id) {
-    let quest_array = [];
-
-    // start iteration at monster Count +1 to skip quest header and start with quests
-    for (var i = MONSTER_COUNT + 1; i < sheet_data.length; i++) {
-        quest_array.push(sheet_data[i][0]);
-        quest_array.push("Done?: " + sheet_data[i][1]);
-        quest_array.push("Rank: " + sheet_data[i][2]);
-
-        quest_array.push("Monster1: " + sheet_data[i][3]);
-        if (sheet_data[i][4]) {
-            quest_array.push("need: " + sheet_data[i][4]);
-        }
-
-        quest_array.push("Monster2: " + sheet_data[i][5]);
-        if (sheet_data[i][6]) {
-            quest_array.push("need: " + sheet_data[i][6]);
-        }
-
-        quest_array.push("Monster3: " + sheet_data[i][7]);
-        if (sheet_data[i][8]) {
-            quest_array.push("need: " + sheet_data[i][8]);
-        }
-
-        quest_array.push("Monster4: " + sheet_data[i][9]);
-        if (sheet_data[i][10]) {
-            quest_array.push("need: " + sheet_data[i][10]);
-        }
-        if (sheet_data[i][11]) {
-            quest_array.push("Monster5: " + sheet_data[i][11]);
-        }
-        if (sheet_data[i][12]) {
-            quest_array.push("need: " + sheet_data[i][12]);
-        }
-
-        quest_array.push("");
-
-        //prevent URl from getting too long to send (<2800 something chars)
-        if (i == sheet_data.length - 6) {
-            sendMessage(id, quest_array.join("\n"));
-            quest_array = [];
-        }
-    }
-
-    // TODO use .filter(Boolean) on array to filter out empty cells
-
-    sendMessage(id, quest_array.join("\n"));
-}
-
-// display help message (user sends /help)
-function displayHelp(id) {
-    let help_text = "Hi! You're either new here or requested help with the dreiernasenBot.\
-                \n\nAvailable commands are:\
-                \n1) <Name of Monster or Quest> to display the current state for a single monster or crown quest\
-                \n2) '/quests' to display the state of all 'music themed' crown-quests\
-                \n3) '/listAll' to display a list of all monsters and quests in the database\
-                \n4) '/crown <monster> <user1L>,<user2S>' to set a crown for listed users. No whitespaces between users - use comma!\
-                \n4) '/help' to display this message again\
-                \n\nWARN: Quest information does not yet update automatically after you used /crown.";
-    sendMessage(id, help_text);
-}
-
 
 //////* HELPER FUNCTIONS *///////
 
 // return the main "data" sheet as array 
-function getDataSheetAsArray() {
+function getMonstersSheetAsArray() {
     var sheet = SpreadsheetApp.openById(SHEET_ID);
 
-    return sheet.getSheetByName("data").getDataRange().getValues();
+    return sheet.getSheetByName("monsters").getDataRange().getValues();
+}
+
+// return the main "data" sheet as array 
+function getQuestsSheetAsArray() {
+    let sheet = SpreadsheetApp.openById(SHEET_ID);
+
+    return sheet.getSheetByName("quests").getDataRange().getValues();
 }
 
 // match two entries, compare them case insensitive as strings
@@ -396,21 +387,33 @@ function cleanString(string) {
 }
 
 // look for a certain monster and send formatted message
-function sendMonsterState(id, monster) {
-    let data = findMonster(id, monster);
-    if (data != null) {
-        sendMessage(id, data.join("\n"));
+function sendMonsterState(id, item) {
+    var item_data = findItem(id, item);
+    if (item_data != null) {
+        sendMessage(id, item_data.join("\n"));
     }
 }
 
-// list all monsters and quests in spreadsheet
-function fetchAllMonsters() {
+// list all monsters in spreadsheet
+function fetchAllMonstersArray() {
     let monster_array = [];
 
-    for (var i = 1; i < sheet_data.length; i++) {
-        monster_array.push(sheet_data[i][0]);
+    for (let i = 1; i < monster_data.length; i++) {
+        monster_array.push(monster_data[i][0]);
+        Logger.log("fetchAllMonstersArray():" + i + " " + monster_data[i][0] + " " + quest_data[i]);
     }
     return monster_array;
+}
+
+// list all quests in spreadsheet
+function fetchAllQuestsArray() {
+    let quest_array = [];
+
+    for (let i = 1; i < quest_data.length; i++) {
+        quest_array.push(quest_data[i][0]);
+        Logger.log("fetchAllQuestsArray() i: " + i + " " + quest_data[i][0]);
+    }
+    return quest_array;
 }
 
 // returns alphabetical letter
@@ -419,7 +422,7 @@ function getColumnByValue(id, value) {
 
     for (let i = 0; i <= COLUMNS; i++) {
 
-        if (entriesMatch(sheet_data[0][i], value)) {
+        if (entriesMatch(monster_data[0][i], value)) {
 
             // getRange requires A1 notation, therefore we transform column number to character            
             return ALPHABET.charAt(i);
@@ -431,16 +434,13 @@ function getColumnByValue(id, value) {
 }
 
 // returns row number in sheet -> starting at 1!
-function getRowByValue(id, value) {
+function getRowNumberByValue(id, table, value) {
 
     // search for the spreadsheet row the monsters data is in. +1 because sheet starts at 1, not at 0
-    for (var i = 0; i < sheet_data.length; i++) {
+    for (var i = 0; i < table.length; i++) {
 
-        if (sheet_data[i][0] != null) {
-
-            if (entriesMatch(sheet_data[i][0], value)) {
-                return i + 1;
-            }
+        if (entriesMatch(table[i][0], value)) {
+            return i;
         }
 
     }
@@ -450,7 +450,7 @@ function getRowByValue(id, value) {
 
 // switches 0 (no crown) to 1 (crown) and the other way. nothing else.
 function changeCellValue(id, target_column, target_row) {
-    var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("data");
+    var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("monsters");
     var target_cell = sheet.getRange(target_column + target_row);
 
     if (target_cell.getValue() == "0") {
