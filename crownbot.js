@@ -68,74 +68,26 @@ function sendMessage(id, text) {
     var response = UrlFetchApp.fetch(BASE_URL + "/sendMessage?chat_id=" + id + "&text=" + encodeURI(text));
 }
 
-
-///////* TEST FUNCTIONS */////////
-
-function testSetValue() {
-    monster_data = getMonstersSheetAsArray();
-    setValues(ADMIN_ID, "testtext", ["Teostra", ["horst,aladin,chris"]]);
-}
-
-function testSendMessage() {
-    sendMessage(ADMIN_ID, "testmessage");
-}
-
-function testSendMonsterState() {
-    monster_data = getMonstersSheetAsArray();
-    quest_data = getQuestsSheetAsArray();
-    sendMonsterState(ADMIN_ID, "Fluffeluff");
-    sendMonsterState(ADMIN_ID, "Effluvial Opera");
-
-}
-
-function testAllDataGet() {
-    quest_data = getQuestsSheetAsArray();
-    monster_data = getMonstersSheetAsArray();
-
-    Logger.log(quest_data.length);
-
-    Logger.log(quest_data)
-
-    Logger.log(monster_data.length);
-
-    Logger.log(monster_data)
-
-    let q_arr = getQuestsSheetAsArray();
-    Logger.log(q_arr);
-    let m_arr = getMonstersSheetAsArray();
-    Logger.log(m_arr);
-    Logger.log("m_arr length: " + m_arr.length);
-
-    let all_m = fetchAllMonstersArray();
-    Logger.log(all_m);
-    let all_q = fetchAllQuestsArray();
-    Logger.log(all_q);
-}
-
 //////* MAIN REQUEST HANDLER *//////
-// this is where telegram works
+// this is where telegram works. each message to the bot is a POST-request, handled in this function
 function doPost(e) {
 
     var contents = JSON.parse(e.postData.contents);
 
-    var timestamp = new Date();
-    timestamp.toLocaleString();
-
     var text = contents.message.text;
     var user_id = contents.message.from.id;
 
-    // refresh data
-    monster_data = getMonstersSheetAsArray();
-    quest_data = getQuestsSheetAsArray();
+    // refresh the global data
+    // global data contains an array for the monsters and another for the quests spreadsheet
+    refreshGlobalData();
 
     try {
-        //test for command (starts with "/")
+        // test if message is command (starts with "/")
         if (/^\//.test(text)) {
             commandHandler(user_id, text);
-
             // if message is no command -> search for single Monster/Quest
         } else {
-            sendMonsterState(user_id, text);
+            sendEntryStateAsMessage(user_id, text);
         }
     } catch (e) {
         sendMessage(user_id, "ERROR. Feel free to contact an admin to get this fixed.\n" + e);
@@ -161,7 +113,7 @@ function commandHandler(id, text) {
             setValues(id, text, args);
             break;
         case "/listall":
-            sendMessage(id, fetchAllMonstersArray().concat(fetchAllQuestsArray()).join("\n"));
+            sendMessage(id, getHeaders(global_monster_data).concat(getHeaders(global_quest_data)).join("\n"));
             break;
         default:
             sendMessage(id, "command not found. try /help.");
@@ -183,15 +135,14 @@ function displayHelp(id) {
 
 // find monster data in spreadsheet and return formatted data as array
 function findItem(id, item) {
-    // TODO way too long function. fixc && TODO either format data completely or don't do it at all
 
     var item_result = null;
 
-    if (fetchAllMonstersArray().includes(item)) {
+    if (getHeaders(global_monster_data).includes(String(item).toLowerCase())) {
 
         item_result = getMonsterData(id, item, "all");
 
-    } else if (fetchAllQuestsArray().includes(item)) {
+    } else if (getHeaders(global_quest_data).includes(String(item).toLowerCase())) {
 
         item_result = getQuestData(id, item);
 
@@ -221,35 +172,31 @@ function setValues(id, text, args) {
 
     var raw_user_data = String(args.pop());
 
-    var monster = args.join(' ');
+    var monster_name = args.join(' ');
 
     // search for the spreadsheet row the monsters data is in. +1 because sheet starts at 1, not at 0
-    var monster_row = getRowNumberByValue(id, monster_data, monster);
-
-    if (!monster_row) {
-        return;
-    }
+    var monster_row = getRowNumberByValue(id, global_monster_data, monster_name);
 
     var matched_user_columns = getMatchedUserColumns(id, raw_user_data);
 
-    if (matched_user_columns == null) {
+    if (!matched_user_columns || !monster_row) {
         return;
     }
 
-    matched_user_columns.forEach(user => changeCellValue(id, user, monster_row));
+    matched_user_columns.forEach(column => changeCellValue(id, column, monster_row));
 
-    // refresh monster_data
-    monster_data = getMonstersSheetAsArray();
+    // refresh global data
+    global_monster_data = getMonstersSheetAsArray();
 
-    sendMessage(id, EMOJI_CHECK + "check! New state of " + monster + ":");
+    sendMessage(id, EMOJI_CHECK + "check! New state of " + monster_name + ":");
 
-    sendMonsterState(id, monster);
+    sendEntryStateAsMessage(id, monster_name);
 }
 
 
 function getMonsterData(id, monster, mode = "all") {
-    let matching_monster_row = getRowNumberByValue(id, monster_data, monster);
-    let raw_data = monster_data[matching_monster_row].slice(0, 3);
+    let matching_monster_row = getRowNumberByValue(id, global_monster_data, monster);
+    let raw_data = global_monster_data[matching_monster_row].slice(0, 3);
 
     var answer_array = [];
 
@@ -273,8 +220,8 @@ function getMonsterData(id, monster, mode = "all") {
 
 
 function getQuestData(id, quest) {
-    let matching_row = getRowNumberByValue(id, quest_data, quest);
-    let raw_data = quest_data[matching_row];
+    let matching_row = getRowNumberByValue(id, global_quest_data, quest);
+    let raw_data = global_quest_data[matching_row];
 
     var answer_array = [];
 
@@ -286,13 +233,10 @@ function getQuestData(id, quest) {
     answer_array.push("Rank: " + raw_data[2] + "\n");
 
     for (let i = 3; i <= raw_data.length; i += 2) {
-
         if (raw_data[i]) {
-
             if (raw_data[i + 1] == '') {
                 answer_array.push(EMOJI_CHECK + raw_data[i]);
             } else {
-
                 answer_array.push(EMOJI_RED + raw_data[i])
                 answer_array.push(EMOJI_HOLLOW_RED + raw_data[i + 1]);
             }
@@ -305,10 +249,10 @@ function getQuestData(id, quest) {
 
 // send user a message w/ approximate matches (matching 1st char) to search query
 function sendNotFoundMessage(id, entry) {
-    let all_headers = fetchAllMonstersArray().concat(fetchAllQuestsArray());
+    let all_headers = getHeaders(global_monster_data).concat(getHeaders(global_quest_data));
 
     // TODO make function and make clickable
-    let approx_match = all_headers.filter(item => item.toLowerCase().startsWith(entry.substring(0, 1).toLowerCase()));
+    let approx_match = all_headers.filter(item => String(item).toLowerCase().startsWith(entry.substring(0, 1).toLowerCase()));
 
     let match_list = approx_match.join('\n');
 
@@ -344,17 +288,10 @@ function isUserAuthorized(id, text, args) {
     if (!ALLOWED_USERS.includes(id)) {
         sendMessage(id, "Error.\nHello, friend. Your ID is not allowed to make changes to the database. Contact the bots admin if you think you should be able to do that.");
         return false;
-
-        // send change attempt to admin
-    } else if (ALLOWED_USERS.includes(id)) {
-        if (id != ADMIN_ID) {
-            var timestamp = new Date();
-            sendMessage(ADMIN_ID, "Change attempt. known user.\ntime: " + timestamp.toLocaleString() + "\nID: " + id + "\ntext: " + text + "\nargs: " + args);
-        }
+    } else {
         return true;
     }
 }
-
 
 //////* HELPER FUNCTIONS *///////
 
@@ -372,6 +309,12 @@ function getQuestsSheetAsArray() {
     return sheet.getSheetByName("quests").getDataRange().getValues();
 }
 
+function refreshGlobalData() {
+    global_monster_data = getQuestsSheetAsArray(); 
+    global_quest_data = getMonstersSheetAsArray();
+}
+
+
 // match two entries, compare them case insensitive as strings
 function entriesMatch(entry_1, entry_2) {
     if (String(entry_1).toLowerCase() === String(entry_2).toLowerCase()) {
@@ -387,48 +330,37 @@ function cleanString(string) {
 }
 
 // look for a certain monster and send formatted message
-function sendMonsterState(id, item) {
+function sendEntryStateAsMessage(id, item) {
     var item_data = findItem(id, item);
     if (item_data != null) {
         sendMessage(id, item_data.join("\n"));
     }
 }
 
-// list all monsters in spreadsheet
-function fetchAllMonstersArray() {
-    let monster_array = [];
+// list all monsters or quests in spreadsheet, table is one of the global arrays
+function getHeaders(table) {
+    let result_array = [];
 
-    for (let i = 1; i < monster_data.length; i++) {
-        monster_array.push(monster_data[i][0]);
-        Logger.log("fetchAllMonstersArray():" + i + " " + monster_data[i][0] + " " + quest_data[i]);
+    for (let i = 1; i < table.length; i++) {
+        result_array.push(String(table[i][0]).toLowerCase());
+        //Logger.log("getHeaders(" + table + ") Nr.:" + i + " " + table[i]);
     }
-    return monster_array;
+    return result_array;
 }
 
-// list all quests in spreadsheet
-function fetchAllQuestsArray() {
-    let quest_array = [];
-
-    for (let i = 1; i < quest_data.length; i++) {
-        quest_array.push(quest_data[i][0]);
-        Logger.log("fetchAllQuestsArray() i: " + i + " " + quest_data[i][0]);
-    }
-    return quest_array;
-}
-
-// returns alphabetical letter
+// returns alphabetical letter for the column the value has been found in
 function getColumnByValue(id, value) {
     let ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
     for (let i = 0; i <= COLUMNS; i++) {
 
-        if (entriesMatch(monster_data[0][i], value)) {
+        if (entriesMatch(global_monster_data[0][i], value)) {
 
-            // getRange requires A1 notation, therefore we transform column number to character            
+            // we require cells in A:1 notation, therefore we transform column number to char
             return ALPHABET.charAt(i);
         }
     }
-    sendMessage(id, "column " + value + " has not been found. skipped.");
+    sendMessage(id, "column '" + value + "' has not been found. skipped.");
 
     return null;
 }
@@ -436,19 +368,18 @@ function getColumnByValue(id, value) {
 // returns row number in sheet -> starting at 1!
 function getRowNumberByValue(id, table, value) {
 
-    // search for the spreadsheet row the monsters data is in. +1 because sheet starts at 1, not at 0
+    // search for the spreadsheet row the monsters data is in. +1 because sheet rows start counting at 1, not at 0
     for (var i = 0; i < table.length; i++) {
 
         if (entriesMatch(table[i][0], value)) {
-            return i;
+            return i + 1;
         }
-
     }
     sendNotFoundMessage(id, value);
     return null;
 }
 
-// switches 0 (no crown) to 1 (crown) and the other way. nothing else.
+// switches 0 (no crown) to 1 (crown) and the other way.
 function changeCellValue(id, target_column, target_row) {
     var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("monsters");
     var target_cell = sheet.getRange(target_column + target_row);
