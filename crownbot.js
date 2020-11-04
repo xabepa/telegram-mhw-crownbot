@@ -1,14 +1,19 @@
-/* Telegram MHW Crown Bot */
-/*request and recieve information via Telegram about currently 
-obtained miniature/large crowns in MHW and MHW:Iceborne
+/* Telegram Monster Hunter World Crown Bot */
 
-Using:
-Telegram Bot for sending and recieving information
-Google Sheets for storing information
-Google Web App / Google Script for handling information and requests*/
+/* Usage:
+request, recieve and change information of a Google Sheet via Telegram Bot
+about obtained miniature/large crowns in MHW and MHW:Iceborne.*/
 
-/* GLOBAL VARIABLES */
-// Telegram Bot Token, aquired by registering a new bot via @botfather in Telegram
+// TODO add google sheet example file
+
+/* Dependencies:
+- Telegram Bot for sending and recieving information
+- Google Sheets for Information storage and data visibility
+- Google Web App / Google Spreadsheet Script for hosting this code*/
+
+////////* GLOBAL VARIABLES *//////
+
+// Telegram Bot API Token, aquired by creating a new Telegram Bot
 const TOKEN = "";
 
 // Base URL for sending Requests
@@ -21,74 +26,57 @@ const WEB_APP_URL = "";
 const SHEET_ID = "";
 
 // ID of admin/creator telegram account for test purposes
- const ADMIN_ID = 0;
+const ADMIN_ID = null;
 
 // list of users that are allowed to make changes
-const ALLOWED_USERS = []
-
-/* SPREADSHEET KEY DATA
-keep those up to date, as they determine how many rows the program iterates to find all monsters/quests 
-COUNT variables contain +1 for their header rows */
-const COLUMNS = 13;
-const MONSTER_COUNT = 72 + 1;
-const QUEST_COUNT = 11 + 1;
-const TOTAL_ROWS = MONSTER_COUNT + QUEST_COUNT;
+const ALLOWED_USERS = [];
 
 /* Emoji codes (javascript escaped unicode versions) */
 const EMOJI_CHECK = "\u2705";
 const EMOJI_RED = "\ud83d\udd34";
 const EMOJI_HOLLOW_RED = "\u2b55";
 
-/* monster and quest sheet data. refreshed on every POST request */
-var monster_data;
+/* global monster and quest sheet data. refreshed on every change and POST request  */
+var global_monster_data;
+var global_quest_data;
 
-var quest_data;
-
-/////////////// CODE //////////////////
+///////////////////////////////////////
+//////////// CODE SECTION /////////////
 
 //////* API HELPER FUNCTIONS */////////
 
-function getMe() {
-    var response = UrlFetchApp.fetch(BASE_URL + "/getMe");
-}
-
-function doGet(e) {
-    return HtmlService.createHtmlOutput("Hello" + JSON.stringify(e));
-}
-
-function getUpdates() {
-    var response = UrlFetchApp.fetch(BASE_URL + "/getUpdates");
-}
-
 function setWebhook() {
     var response = UrlFetchApp.fetch(BASE_URL + "/setWebHook?url=" + WEB_APP_URL);
+    Logger.log(response);
 }
 
 function sendMessage(id, text) {
-    var response = UrlFetchApp.fetch(BASE_URL + "/sendMessage?chat_id=" + id + "&text=" + encodeURI(text));
+    UrlFetchApp.fetch(BASE_URL + "/sendMessage?chat_id=" + id + "&text=" + encodeURI(text));
 }
 
 //////* MAIN REQUEST HANDLER *//////
-// this is where telegram works. each message to the bot is a POST-request, handled in this function
-function doPost(e) {
 
-    var contents = JSON.parse(e.postData.contents);
+// this is where telegram works. each message to the bot is a POST-request, initially handled here
+function doPost(request) {
+
+    var contents = JSON.parse(request.postData.contents);
 
     var text = contents.message.text;
     var user_id = contents.message.from.id;
 
-    // refresh the global data
     // global data contains an array for the monsters and another for the quests spreadsheet
-    refreshGlobalData();
+    refreshGlobalArrays();
 
     try {
-        // test if message is command (starts with "/")
+        // test if message is command (starts with "/") using regex
         if (/^\//.test(text)) {
             commandHandler(user_id, text);
-            // if message is no command -> search for single Monster/Quest
+
+        // if message is no command -> search for single Monster/Quest
         } else {
-            sendEntryStateAsMessage(user_id, text);
+            sendEntryStatusMessage(user_id, text);
         }
+
     } catch (e) {
         sendMessage(user_id, "ERROR. Feel free to contact an admin to get this fixed.\n" + e);
     }
@@ -96,7 +84,7 @@ function doPost(e) {
 
 /////////* BOT FUNCTIONS */////////
 
-// handle commands. id needed to send messages and authorize user on /setValue
+// handle commands
 function commandHandler(id, text) {
 
     var args = text.split(' ');
@@ -110,7 +98,7 @@ function commandHandler(id, text) {
             displayHelp(id);
             break;
         case "/crown":
-            setValues(id, text, args);
+            changeEntryValue(id, text, args);
             break;
         case "/listall":
             sendMessage(id, getHeaders(global_monster_data).concat(getHeaders(global_quest_data)).join("\n"));
@@ -128,39 +116,32 @@ function displayHelp(id) {
                 \n1) <Name of Monster or Quest> to display the current state for a single monster or crown quest\
                 \n2) '/listAll' to list all monsters and quests in the database\
                 \n3) '/crown <monster> <user1L>,<user2S>' to set a crown for listed users. No whitespaces between users - use comma!\
-                \n4) '/help' to display this message again\
-                \n\nWARN: Quest information does not yet update automatically after you used /crown.";
+                \n4) '/help' to display this message again";
     sendMessage(id, help_text);
 }
 
 // find monster data in spreadsheet and return formatted data as array
-function findItem(id, item) {
+function findEntry(id, item) {
 
     var item_result = null;
 
     if (getHeaders(global_monster_data).includes(String(item).toLowerCase())) {
-
         item_result = getMonsterData(id, item, "all");
-
     } else if (getHeaders(global_quest_data).includes(String(item).toLowerCase())) {
-
         item_result = getQuestData(id, item);
-
     } else {
         sendNotFoundMessage(id, item);
     }
-
     return item_result;
 }
 
 
 // set values for cells, used for setting users new crown possessions. (e.g. set that user1 found large Teostra crown) 
-function setValues(id, text, args) {
+function changeEntryValue(id, text, args) {
 
     if (!isUserAuthorized(id, text, args)) {
         return;
     }
-
     // handle (wrong) user input
     if (args.length > 4) {
         sendMessage(id, "error. too many arguments provided. remember: no whitespaces between users (=> userL,user2L)!\n\ncheck usage via /help");
@@ -170,41 +151,32 @@ function setValues(id, text, args) {
         return;
     }
 
+    // 
     var raw_user_data = String(args.pop());
-
     var monster_name = args.join(' ');
 
-    // search for the spreadsheet row the monsters data is in. +1 because sheet starts at 1, not at 0
-    var monster_row = getRowNumberByValue(id, global_monster_data, monster_name);
+    var monster_row_in_sheet = getRowNumberByValue(id, global_monster_data, monster_name);
+    var matching_user_columns = getMatchingUserColumns(id, raw_user_data);
 
-    var matched_user_columns = getMatchedUserColumns(id, raw_user_data);
-
-    if (!matched_user_columns || !monster_row) {
+    if (!matching_user_columns || !monster_row_in_sheet) {
         return;
     }
 
-    matched_user_columns.forEach(column => changeCellValue(id, column, monster_row));
+    matching_user_columns.forEach(column => 
+        changeValueInSpreadsheet(id, column, monster_row_in_sheet));
 
-    // refresh global data
-    global_monster_data = getMonstersSheetAsArray();
+    refreshGlobalArrays();
 
-    sendMessage(id, EMOJI_CHECK + "check! New state of " + monster_name + ":");
-
-    sendEntryStateAsMessage(id, monster_name);
+    sendMessage(id, EMOJI_CHECK + "check! New status of " + monster_name + ":");
+    sendEntryStatusMessage(id, monster_name);
 }
 
-
+// grab a monsters data of global monster array and return formatted info as array
 function getMonsterData(id, monster, mode = "all") {
     let matching_monster_row = getRowNumberByValue(id, global_monster_data, monster);
     let raw_data = global_monster_data[matching_monster_row].slice(0, 3);
 
     var answer_array = [];
-
-    if (raw_data[0] == "Fluffeluff") {
-        answer_array.push(raw_data[1]);
-        answer_array.push("Es kosst dich: " + raw_data[2]);
-        return answer_array;
-    }
 
     if (raw_data[1] == "Yes") {
         answer_array.push(EMOJI_RED + "Not done");
@@ -214,22 +186,23 @@ function getMonsterData(id, monster, mode = "all") {
     } else if (raw_data[1] == "No") {
         answer_array.push(EMOJI_CHECK + "Done");
     }
-
     return answer_array;
 }
 
-
+// grabs a quests data of the global quest array and returns specific quests data array
 function getQuestData(id, quest) {
     let matching_row = getRowNumberByValue(id, global_quest_data, quest);
     let raw_data = global_quest_data[matching_row];
 
     var answer_array = [];
 
+    // quest is not needed
     if (raw_data[1] == "NO") {
         answer_array.push(EMOJI_CHECK + "Done");
         return answer_array;
     }
 
+    // if this is reached quest is needed, loop through quests monsters and push info to array
     answer_array.push("Rank: " + raw_data[2] + "\n");
 
     for (let i = 3; i <= raw_data.length; i += 2) {
@@ -242,27 +215,12 @@ function getQuestData(id, quest) {
             }
         }
     }
-
     return answer_array;
 }
 
-
-// send user a message w/ approximate matches (matching 1st char) to search query
-function sendNotFoundMessage(id, entry) {
-    let all_headers = getHeaders(global_monster_data).concat(getHeaders(global_quest_data));
-
-    // TODO make function and make clickable
-    let approx_match = all_headers.filter(item => String(item).toLowerCase().startsWith(entry.substring(0, 1).toLowerCase()));
-
-    let match_list = approx_match.join('\n');
-
-    let txt = "The monster or quest you were looking for has not been found. Check your spelling - I guess you're looking for one of those?\n\n" + match_list + "\n\nYou can send me a '/listAll' for a list of all monsters in the database";
-
-    sendMessage(id, txt);
-}
-
-// Helper function to 
-function getMatchedUserColumns(id, string) {
+// Helper function to find if matching columns can be found for an array of potential usernames. 
+// return the sheets column chars (e.g. 'A' for first column) as array
+function getMatchingUserColumns(id, string) {
 
     //split into single user names
     var data = string.split(',');
@@ -293,27 +251,38 @@ function isUserAuthorized(id, text, args) {
     }
 }
 
+// send user a message w/ approximate matches (matching 1st char) to search query
+function sendNotFoundMessage(id, entry) {
+    let all_headers = getHeaders(global_monster_data).concat(getHeaders(global_quest_data));
+
+    // find all entrys that start with same letter
+    let approx_match = all_headers.filter(item =>
+        String(item).toLowerCase().startsWith(entry.substring(0, 1).toLowerCase()));
+
+    let match_list = approx_match.join('\n');
+    let txt = "The monster or quest you were looking for has not been found. Check your spelling - I guess you're looking for one of those?\n\n" + match_list + "\n\nYou can send me a '/listAll' for a list of all monsters in the database";
+
+    sendMessage(id, txt);
+}
+
 //////* HELPER FUNCTIONS *///////
 
-// return the main "data" sheet as array 
-function getMonstersSheetAsArray() {
+// return Google Sheet "monsters" sheet as array 
+function getMonsterSheetAsArray() {
     var sheet = SpreadsheetApp.openById(SHEET_ID);
-
     return sheet.getSheetByName("monsters").getDataRange().getValues();
 }
 
-// return the main "data" sheet as array 
-function getQuestsSheetAsArray() {
+// return Google Sheet "quests" sheet as array 
+function getQuestSheetAsArray() {
     let sheet = SpreadsheetApp.openById(SHEET_ID);
-
     return sheet.getSheetByName("quests").getDataRange().getValues();
 }
 
-function refreshGlobalData() {
-    global_monster_data = getQuestsSheetAsArray(); 
-    global_quest_data = getMonstersSheetAsArray();
+function refreshGlobalArrays() {
+    global_monster_data = getMonsterSheetAsArray();
+    global_quest_data = getQuestSheetAsArray();
 }
-
 
 // match two entries, compare them case insensitive as strings
 function entriesMatch(entry_1, entry_2) {
@@ -329,11 +298,11 @@ function cleanString(string) {
     return string.replace(/[^a-zA-Z ]/g, '');
 }
 
-// look for a certain monster and send formatted message
-function sendEntryStateAsMessage(id, item) {
-    var item_data = findItem(id, item);
-    if (item_data != null) {
-        sendMessage(id, item_data.join("\n"));
+// find certain entry (quest or monster) and send formatted message
+function sendEntryStatusMessage(id, entry) {
+    var entry_data = findEntry(id, entry);
+    if (entry_data != null) {
+        sendMessage(id, entry_data.join("\n"));
     }
 }
 
@@ -343,7 +312,6 @@ function getHeaders(table) {
 
     for (let i = 1; i < table.length; i++) {
         result_array.push(String(table[i][0]).toLowerCase());
-        //Logger.log("getHeaders(" + table + ") Nr.:" + i + " " + table[i]);
     }
     return result_array;
 }
@@ -352,37 +320,35 @@ function getHeaders(table) {
 function getColumnByValue(id, value) {
     let ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-    for (let i = 0; i <= COLUMNS; i++) {
+    for (let i = 0; i <= global_monster_data[0].length; i++) {
 
         if (entriesMatch(global_monster_data[0][i], value)) {
 
-            // we require cells in A:1 notation, therefore we transform column number to char
+            // spreadsheet cells are in 'A1' notation, therefore transform column number to char
             return ALPHABET.charAt(i);
         }
     }
     sendMessage(id, "column '" + value + "' has not been found. skipped.");
-
     return null;
 }
 
-// returns row number in sheet -> starting at 1!
+// returns row number of value in array by checking if entries match
+// remember to increment row by 1 if using it inside of the sheet (there is no row 0!)
 function getRowNumberByValue(id, table, value) {
 
-    // search for the spreadsheet row the monsters data is in. +1 because sheet rows start counting at 1, not at 0
     for (var i = 0; i < table.length; i++) {
-
         if (entriesMatch(table[i][0], value)) {
-            return i + 1;
+            return i;
         }
     }
     sendNotFoundMessage(id, value);
     return null;
 }
 
-// switches 0 (no crown) to 1 (crown) and the other way.
-function changeCellValue(id, target_column, target_row) {
+// switches users crown data in data sheet -> 0 (no crown) or 1 (crown)
+function changeValueInSpreadsheet(id, target_column, target_row) {
     var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("monsters");
-    var target_cell = sheet.getRange(target_column + target_row);
+    var target_cell = sheet.getRange(target_column + (parseInt(target_row) + 1));
 
     if (target_cell.getValue() == "0") {
         target_cell.setValue('1');
