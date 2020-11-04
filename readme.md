@@ -1,10 +1,10 @@
 
 ## Purpose
-A Telegram Bot, written in Java-/GoogleAppsScript and hosted as Google Web App Script. Built to request, recieve and update a Spreadsheets data by sending commands and chats in the Telegram Messenger. 
+A Telegram Bot, written in Java-/GoogleappsScript and hosted as Google Web App. Built to request, recieve and update a spreadsheets data by sending commands and chats using the Telegram Messenger. 
 
-Handles information about the status of miniature/large crowns for monsters and quests in Monster Hunter World and MHW Iceborne. Allows for comfortable tracking and updating of Crown Collector Achievements progress.
+Handles information about up to 4 users status regarding possession of miniature and large crowns in Monster Hunter World and MHW Iceborne. Allows for comfortable tracking and updating of Crown Collector Achievements progress.
 
-Provides simplicity-focused chat responses and (decently) visually appealing spreadsheet data including overview over high change crown quests (the music-themed ones).
+Provides simplicity-focused chat responses for monsters and quests and (decently) visually appealing spreadsheet data including overview over high change crown quests (the music-themed ones).
 
 #### "If in doubt - take a bite!"
 
