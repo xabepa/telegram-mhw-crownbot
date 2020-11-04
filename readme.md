@@ -6,9 +6,7 @@ Used to handle information about the status of miniature/large crowns for monste
 
 Provides simplicity-focused chat-answers and (decently) visually appealing spreadsheet data including overview over high change crown quests (the music-themed ones).
 
-### "If in doubt - take a bite!"
-
-#
+#### "If in doubt - take a bite!"
 
 ## Setup
 
@@ -36,8 +34,7 @@ Provides simplicity-focused chat-answers and (decently) visually appealing sprea
         - As can everyone (in bounds of the scripts/bots functionality). Be aware of that!
 7. Save 
 8. Run Function `"setWebhook"` (click Run -> Run Funtion -> setWebhook)
-	- Check Logs if function worked as it's supposed to
-        -   Logs should be "example"
+	- Check Logs if function worked as it's supposed to (== no errors)
 9. Repeat Step 5 (yes, including `Project Version: "New"`)
 10. That's it! Enter your data into the spreadsheet and happy grinding!
 
