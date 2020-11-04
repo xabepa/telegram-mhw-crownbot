@@ -1,10 +1,10 @@
 
 ## Purpose
-A Telegram Bot, written in Java-/GoogleAppsScript and hosted as Google Web App Script. Built to request, recieve and update a Spreadsheets data by sending commands and chats in the Telegram Messenger. 
+A Telegram Bot, written in Java-/GoogleappsScript and hosted as Google Web App. Built to request, recieve and update a spreadsheets data by sending commands and chats using the Telegram Messenger. 
 
-Handles information about the status of miniature/large crowns for monsters and quests in Monster Hunter World and MHW Iceborne. Allows for comfortable tracking and updating of Crown Collector Achievements progress.
+Handles information about up to 4 users collection of miniature and large crowns in Monster Hunter World: Iceborne. Allows comfortable tracking and updating of MHWs Crown Collector Achievements progress.
 
-Provides simplicity-focused chat responses and (decently) visually appealing spreadsheet data including overview over high change crown quests (the music-themed ones).
+Provides simplicity-focused chat responses for monsters and quests in Telegram and a (decently) visually appealing spreadsheet including overview of high change crown quests (the music-themed ones).
 
 #### "If in doubt - take a bite!"
 
@@ -22,7 +22,7 @@ Provides simplicity-focused chat responses and (decently) visually appealing spr
  2. Download `example_botsheet.xlsx`, edit and/or rename file and upload to your Google Sheets
 	- rename user columns as needed, but leave trailing S and L unchanged ("user1S" -> "examplenameS")
 	- this sheet is built for 4 users. fill unused users columns with '1's
-3. Open that Spreadsheet
+3. Open Spreadsheet in Google Sheets
 3. Open Script Editor (click Tools -> Script Editor)
 4. Remove all code in Script Editor, copy and paste all code in `crownbot.js`
 5. Deploy as Web App (click Publish -> Deploy as web app) 
