@@ -15,7 +15,7 @@ Provides simplicity-focused chat responses for monsters and quests in Telegram a
  2. Download `example_botsheet.xlsx`, edit and/or rename file and upload to your Google Sheets
 	- rename user columns as needed, but leave trailing S and L unchanged ("user1S" -> "examplenameS")
 	- this sheet is built for 4 users. fill unused users columns with '1's
-3. Open that Spreadsheet
+3. Open Spreadsheet in Google Sheets
 3. Open Script Editor (click Tools -> Script Editor)
 4. Remove all code in Script Editor, copy and paste all code in `crownbot.js`
 5. Deploy as Web App (click Publish -> Deploy as web app) 
