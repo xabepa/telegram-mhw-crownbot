@@ -1,5 +1,5 @@
 
-## Purpose
+# MHW Telegram Crown Collector Bot
 A Telegram Bot, written in Java-/GoogleappsScript and hosted as Google Web App. Built to request, recieve and update a spreadsheets data by sending commands and chats using the Telegram Messenger. 
 
 Handles information about up to 4 users collection of miniature and large crowns in Monster Hunter World: Iceborne. Allows comfortable tracking and updating of MHWs Crown Collector Achievements progress.
