@@ -29,7 +29,7 @@ const SHEET_ID = "";
 const ADMIN_ID = null;
 
 // list of users that are allowed to make changes
-const ALLOWED_USERS = [];
+const ALLOWED_USERS = [ADMIN_ID, ];
 
 /* Emoji codes (javascript escaped unicode versions) */
 const EMOJI_CHECK = "\u2705";
@@ -151,22 +151,26 @@ function changeEntryValue(id, text, args) {
         return;
     }
 
-    // 
+    // grab potential usernames and monsters name out of args
     var raw_user_data = String(args.pop());
     var monster_name = args.join(' ');
 
+    // find monsters row in sheet, check if raw_user_data contained valid users and get their sheet columns
     var monster_row_in_sheet = getRowNumberByValue(id, global_monster_data, monster_name);
     var matching_user_columns = getMatchingUserColumns(id, raw_user_data);
 
+    // return if no users matched or the monster has not been found
     if (!matching_user_columns || !monster_row_in_sheet) {
         return;
     }
 
+    // update monsters values in Google Sheet for each user
     matching_user_columns.forEach(column => 
         changeValueInSpreadsheet(id, column, monster_row_in_sheet));
 
     refreshGlobalArrays();
 
+    // inform user about success and send new status of monster
     sendMessage(id, EMOJI_CHECK + "check! New status of " + monster_name + ":");
     sendEntryStatusMessage(id, monster_name);
 }
@@ -189,7 +193,7 @@ function getMonsterData(id, monster, mode = "all") {
     return answer_array;
 }
 
-// grabs a quests data of the global quest array and returns specific quests data array
+// grab a certain quests data of global quest array and return formatted info as array
 function getQuestData(id, quest) {
     let matching_row = getRowNumberByValue(id, global_quest_data, quest);
     let raw_data = global_quest_data[matching_row];
@@ -218,25 +222,27 @@ function getQuestData(id, quest) {
     return answer_array;
 }
 
-// Helper function to find if matching columns can be found for an array of potential usernames. 
+// Helper function to find if matching columns can be found in an array of potential usernames. 
 // return the sheets column chars (e.g. 'A' for first column) as array
 function getMatchingUserColumns(id, string) {
 
     //split into single user names
     var data = string.split(',');
 
-    // make them unique (Set) and clear special characters
+    // clean of special characters and make them unique (Set) 
     var users = [...new Set(data.map(x => cleanString(x)))];
 
     var matched_user_columns = [];
 
+    // get column for each potential user or null if column ist not found
     users.forEach(user => {
-        let container = getColumnByValue(id, user);
+        let column_container = getColumnByValue(id, user);
 
-        if (container != null) {
-            matched_user_columns.push(container);
+        if (column_container != null) {
+            matched_user_columns.push(column_container);
         }
     })
+    // return array if not empty, else null
     return matched_user_columns.length != 0 ? matched_user_columns : null
 }
 
@@ -333,7 +339,7 @@ function getColumnByValue(id, value) {
 }
 
 // returns row number of value in array by checking if entries match
-// remember to increment row by 1 if using it inside of the sheet (there is no row 0!)
+// remember to increment row by 1 if using it inside of the Google Sheet (there is no row 0!)
 function getRowNumberByValue(id, table, value) {
 
     for (var i = 0; i < table.length; i++) {
