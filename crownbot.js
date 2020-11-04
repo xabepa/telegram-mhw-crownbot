@@ -82,7 +82,7 @@ function doPost(request) {
     }
 }
 
-/////////* BOT FUNCTIONS */////////
+/////////* BOT FUNCTIONS *///////////
 
 // handle commands
 function commandHandler(id, text) {
@@ -109,7 +109,7 @@ function commandHandler(id, text) {
     }
 }
 
-// display help message (user sends /help)
+// display help message (/help or /start of conversation with bot) 
 function displayHelp(id) {
     let help_text = "Hi! You're either new here or requested help with the dreiernasenBot.\
                 \n\nAvailable commands are:\
@@ -136,7 +136,7 @@ function findEntry(id, item) {
 }
 
 
-// set values for cells, used for setting users new crown possessions. (e.g. set that user1 found large Teostra crown) 
+// set values for cells, used for setting users new crown collections. (e.g. set that user1L found Teostra crown) 
 function changeEntryValue(id, text, args) {
 
     if (!isUserAuthorized(id, text, args)) {

@@ -8,6 +8,13 @@ Provides simplicity-focused chat responses and (decently) visually appealing spr
 
 #### "If in doubt - take a bite!"
 
+## Examples
+
+
+![](./readme_img/monster_response.png)
+![](./readme_img/quest_response.png)
+
+
 ## Setup
 
 1. Create new Telegram Bot
