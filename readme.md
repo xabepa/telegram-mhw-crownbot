@@ -47,8 +47,6 @@ Provides simplicity-focused chat responses for monsters and quests in Telegram a
 10. Repeat Step 5 (yes, including `Project Version: "New"`)
 11. That's it! Enter your data into the spreadsheet and happy hunting!
 
-#### "Dismissed!"
-
 #
 ### Limitations
 Be aware that this it neither professionally written nor thoroughly tested code. It's a hobby project. If you experience anything weird, got a question or want to suggest something - send me a message. 
