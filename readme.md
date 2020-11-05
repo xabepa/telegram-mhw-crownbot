@@ -21,7 +21,7 @@ Provides simplicity-focused chat responses for monsters and quests in Telegram a
 1. Create new Telegram Bot
 	- save API Token (you'll need that)
  2. Download `example_botsheet.xlsx`, edit and/or rename file and upload to your Google Sheets
-	- rename user columns as needed, but leave trailing S and L unchanged to differentiate between miniature and giant crowns ("user1S" -> "examplenameS")
+	- rename user columns as needed, but leave trailing S and L unchanged to differentiate between miniature (S) and giant (L) crowns ("user1S" -> "examplenameS")
 	- this sheet is built for 4 users. fill unused users columns with '1's
 3. Open Spreadsheet in Google Sheets
 3. Open Script Editor (click Tools -> Script Editor)
