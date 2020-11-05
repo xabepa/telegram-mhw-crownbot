@@ -20,18 +20,19 @@ Provides simplicity-focused chat responses for monsters and quests in Telegram a
 
 1. Create new Telegram Bot
 	- save API Token (you'll need that)
- 2. Download `example_botsheet.xlsx`, edit and/or rename file and upload to your Google Sheets
+2. Download `example_botsheet.xlsx`, edit and/or rename file and upload to your Google Sheets
 	- rename user columns as needed, but leave trailing S and L unchanged to differentiate between miniature (S) and giant (L) crowns ("user1S" -> "examplenameS")
 	- this sheet is built for 4 users. fill unused users columns with '1's
+	- do not change formulas or rearrange columns A,B and C
 3. Open Spreadsheet in Google Sheets
-3. Open Script Editor (click Tools -> Script Editor)
-4. Remove all code in Script Editor, copy and paste all code in `crownbot.js`
-5. Deploy as Web App (click Publish -> Deploy as web app) 
+4. Open Script Editor (click Tools -> Script Editor)
+5. Remove all code in Script Editor, copy and paste all code in `crownbot.js`
+6. Deploy as Web App (click Publish -> Deploy as web app) 
 	- `Project Version: "New"`
 	- `Execute the app as: "Me (example@gmail.com)"`
 	- `Who has access: "Anyone, even anonymous"` (...and the telegram bot)
 	- Save resulting web app URL (you'll need that, too)
-6. Enter global variable values into the Script Editor
+7. Enter global variable values into the Script Editor
 	- `TOKEN` is your Telegram Bot Token aquired in step 1
 	- `SHEET_ID` is part of the URL of the Spreadsheet (switch to that tab) 
         - here: htt<span>ps://docs.google.com/spreadsheets/X/`___{SHEET_ID}___`/edit#gid=XXXXXXXXXX "
@@ -40,11 +41,11 @@ Provides simplicity-focused chat responses for monsters and quests in Telegram a
 	- `ALLOWED_USERS` is a list of Telegram IDs (users) that are allowed to edit data
         - Not on the list? No data editing power. But you can use the bot to view the data. 
         - As can everyone (in bounds of the scripts/bots functionality). Be aware of that!
-7. Save 
-8. Run Function `setWebhook()` (click Run -> Run Funtion -> setWebhook)
+8. Save 
+9. Run Function `setWebhook()` (click Run -> Run Funtion -> setWebhook)
 	- Check Logs if function worked as it's supposed to (== no errors)
-9. Repeat Step 5 (yes, including `Project Version: "New"`)
-10. That's it! Enter your data into the spreadsheet and happy hunting!
+10. Repeat Step 5 (yes, including `Project Version: "New"`)
+11. That's it! Enter your data into the spreadsheet and happy hunting!
 
 #### "Dismissed!"
 
