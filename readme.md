@@ -2,7 +2,7 @@
 # MHW Telegram Crown Collector Bot
 A Telegram Bot, written in Java-/GoogleappsScript and hosted as Google Web App. Built to request, recieve and update a spreadsheets data by sending commands and chats using the Telegram Messenger. 
 
-Handles information about multiple users collection of miniature and large crowns in Monster Hunter World: Iceborne. Allows comfortable tracking and updating of MHWs Crown Collector Achievements progress.
+Handles information about multiple users collection of miniature (S) and giant (L) crowns in Monster Hunter World: Iceborne. Allows for comfortable tracking and updating of MHWs Crown Collector Achievements progress.
 
 Provides simplicity-focused chat responses for monsters and quests in Telegram and a (decently) visually appealing spreadsheet including overview of high change crown quests (the music-themed ones).
 
@@ -21,7 +21,7 @@ Provides simplicity-focused chat responses for monsters and quests in Telegram a
 1. Create new Telegram Bot
 	- save API Token (you'll need that)
  2. Download `example_botsheet.xlsx`, edit and/or rename file and upload to your Google Sheets
-	- rename user columns as needed, but leave trailing S and L unchanged ("user1S" -> "examplenameS")
+	- rename user columns as needed, but leave trailing S and L unchanged to differentiate between miniature and giant crowns ("user1S" -> "examplenameS")
 	- this sheet is built for 4 users. fill unused users columns with '1's
 3. Open Spreadsheet in Google Sheets
 3. Open Script Editor (click Tools -> Script Editor)
@@ -44,7 +44,9 @@ Provides simplicity-focused chat responses for monsters and quests in Telegram a
 8. Run Function `setWebhook()` (click Run -> Run Funtion -> setWebhook)
 	- Check Logs if function worked as it's supposed to (== no errors)
 9. Repeat Step 5 (yes, including `Project Version: "New"`)
-10. That's it! Enter your data into the spreadsheet and happy grinding!
+10. That's it! Enter your data into the spreadsheet and happy hunting!
+
+#### "Dismissed!"
 
 #
 ### Limitations
