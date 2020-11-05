@@ -4,8 +4,6 @@
 request, recieve and change information of a Google Sheet via Telegram Bot
 about obtained miniature/large crowns in MHW and MHW:Iceborne.*/
 
-// TODO add google sheet example file
-
 /* Dependencies:
 - Telegram Bot for sending and recieving information
 - Google Sheets for Information storage and data visibility
@@ -26,7 +24,7 @@ const WEB_APP_URL = "";
 const SHEET_ID = "";
 
 // ID of admin/creator telegram account for test purposes
-const ADMIN_ID = null;
+const ADMIN_ID = 0;
 
 // list of users that are allowed to make changes
 const ALLOWED_USERS = [ADMIN_ID, ];
@@ -92,8 +90,6 @@ function commandHandler(id, text) {
 
     switch (command.toLowerCase()) {
         case "/start":
-            displayHelp(id);
-            break;
         case "/help":
             displayHelp(id);
             break;
@@ -101,7 +97,7 @@ function commandHandler(id, text) {
             changeEntryValue(id, text, args);
             break;
         case "/listall":
-            sendMessage(id, getHeaders(global_monster_data).concat(getHeaders(global_quest_data)).join("\n"));
+            sendMessage(id, getAllHeaders().join("\n"));
             break;
         default:
             sendMessage(id, "command not found. try /help.");
@@ -123,18 +119,15 @@ function displayHelp(id) {
 // find monster data in spreadsheet and return formatted data as array
 function findEntry(id, item) {
 
-    var item_result = null;
-
-    if (getHeaders(global_monster_data).includes(String(item).toLowerCase())) {
-        item_result = getMonsterData(id, item, "all");
-    } else if (getHeaders(global_quest_data).includes(String(item).toLowerCase())) {
-        item_result = getQuestData(id, item);
+    if (foundInHeaders(global_monster_data, item)) {
+        return getMonsterData(id, item, "all");
+    } else if (foundInHeaders(global_quest_data, item)) {
+        return getQuestData(id, item);
     } else {
         sendNotFoundMessage(id, item);
     }
-    return item_result;
+    return null;
 }
-
 
 // set values for cells, used for setting users new crown collections. (e.g. set that user1L found Teostra crown) 
 function changeEntryValue(id, text, args) {
@@ -259,10 +252,8 @@ function isUserAuthorized(id, text, args) {
 
 // send user a message w/ approximate matches (matching 1st char) to search query
 function sendNotFoundMessage(id, entry) {
-    let all_headers = getHeaders(global_monster_data).concat(getHeaders(global_quest_data));
-
     // find all entrys that start with same letter
-    let approx_match = all_headers.filter(item =>
+    let approx_match = getAllHeaders().filter(item =>
         String(item).toLowerCase().startsWith(entry.substring(0, 1).toLowerCase()));
 
     let match_list = approx_match.join('\n');
@@ -271,7 +262,7 @@ function sendNotFoundMessage(id, entry) {
     sendMessage(id, txt);
 }
 
-//////* HELPER FUNCTIONS *///////
+//////////* HELPER FUNCTIONS *////////////
 
 // return Google Sheet "monsters" sheet as array 
 function getMonsterSheetAsArray() {
@@ -313,18 +304,35 @@ function sendEntryStatusMessage(id, entry) {
 }
 
 // list all monsters or quests in spreadsheet, table is one of the global arrays
-function getHeaders(table) {
+function getHeaders(table, mode = "upper") {
     let result_array = [];
 
     for (let i = 1; i < table.length; i++) {
-        result_array.push(String(table[i][0]).toLowerCase());
+        if (mode == "upper") {
+            result_array.push(table[i][0]);
+        } else if (mode  == "lower") {
+            result_array.push(String(table[i][0]).toLowerCase());
+        }
     }
     return result_array;
 }
 
+function getAllHeaders() {
+    let all_headers = getHeaders(global_monster_data).concat(getHeaders(global_quest_data));
+    return all_headers;
+}
+
+function foundInHeaders(table, item) {
+    let headers = getHeaders(table, "lower");
+    if (headers.includes(String(item).toLowerCase())) {
+        return true;
+    }
+    return false;
+}
+
 // returns alphabetical letter for the column the value has been found in
 function getColumnByValue(id, value) {
-    let ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
     for (let i = 0; i <= global_monster_data[0].length; i++) {
 
@@ -353,14 +361,15 @@ function getRowNumberByValue(id, table, value) {
 
 // switches users crown data in data sheet -> 0 (no crown) or 1 (crown)
 function changeValueInSpreadsheet(id, target_column, target_row) {
-    var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("monsters");
-    var target_cell = sheet.getRange(target_column + (parseInt(target_row) + 1));
-
-    if (target_cell.getValue() == "0") {
+    let sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName("monsters");
+    let target_cell = sheet.getRange(target_column + (parseInt(target_row) + 1));
+    let target_cell_value = target_cell.getValue()
+      
+    if (target_cell_value == "0") {
         target_cell.setValue('1');
-    } else if (target_cell.getValue() == "1") {
+    } else if (target_cell_value == "1") {
         target_cell.setValue('0');
     } else {
-        sendMessage(id, "Error. Expected Value 0 or 1 in cell " + target_column + target_row + " but found: " + target_cell.getValue() + "\nNo new values have been set.");
+        sendMessage(id, "Error. Expected Value 0 or 1 in cell " + target_column + target_row + " but found: " + target_cell_value + "\nNo new values have been set.");
     }
 }

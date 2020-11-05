@@ -13,6 +13,7 @@ Provides simplicity-focused chat responses for monsters and quests in Telegram a
 
 ![](./readme_img/monster_response.png)
 ![](./readme_img/quest_response.png)
+![](./readme_img/monster_change.png)
 
 
 ## Setup
