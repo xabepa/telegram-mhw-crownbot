@@ -36,7 +36,7 @@ Provides simplicity-focused chat responses for monsters and quests in Telegram a
 	- `TOKEN` is your Telegram Bot Token aquired in step 1
 	- `SHEET_ID` is part of the URL of the Spreadsheet (switch to that tab) 
         - here: htt<span>ps://docs.google.com/spreadsheets/X/`___{SHEET_ID}___`/edit#gid=XXXXXXXXXX "
-	- `WEB_APP_URL` is the URL from step 5
+	- `WEB_APP_URL` is the URL from step 6
 	- `ADMIN_ID` is your own Accounts Telegram ID for testing or debugging
 	- `ALLOWED_USERS` is a list of Telegram IDs (users) that are allowed to edit data
         - Not on the list? No data editing power. But you can use the bot to view the data. 
@@ -44,7 +44,7 @@ Provides simplicity-focused chat responses for monsters and quests in Telegram a
 8. Save 
 9. Run Function `setWebhook()` (click Run -> Run Funtion -> setWebhook)
 	- Check Logs if function worked as it's supposed to (== no errors)
-10. Repeat Step 5 (yes, including `Project Version: "New"`)
+10. Repeat Step 6 (yes, including `Project Version: "New"`)
 11. That's it! Enter your data into the spreadsheet and happy hunting!
 
 #
